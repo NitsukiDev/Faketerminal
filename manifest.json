@@ -1,0 +1,8 @@
+{
+  "name": "💳 Fake NFC Terminál",
+  "short_name": "NFC Terminal",
+  "start_url": "terminal.html",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#00b050"
+}
