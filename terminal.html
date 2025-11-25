@@ -1,95 +1,60 @@
 <!DOCTYPE html>
 <html lang="cs">
-<head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fake NFC Terminál</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Falešný Terminál</title>
+
 <style>
 body{
-  margin:0;
-  font-family:Arial, sans-serif;
-  background:#111;
-  color:#fff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  height:100vh;
-  text-align:center;
+  margin:0; font-family:Arial; background:#111; color:#fff; display:flex;
+  justify-content:center; align-items:center; height:100vh; text-align:center;
 }
-.screen{display:none;flex-direction:column;gap:15px;}
-.activeScreen{display:flex;}
-input, button{
-  padding:15px;
-  font-size:18px;
-  border:none;
-  border-radius:8px;
-}
-button{cursor:pointer;}
-.primary{background:#00c851;color:#fff;}
-.danger{background:#ff4444;color:#fff;}
-.lights{display:flex;justify-content:center;gap:10px;}
-.light{
-  width:15px;
-  height:15px;
-  border-radius:50%;
-  background:#003300;
-}
-.activeLight{background:#00ff00;}
-#pinInput{
-  width:200px;
-  letter-spacing:8px;
-  text-align:center;
-  background:#000;
-  color:#0f0;
-  font-size:28px;
-  border:2px solid #0f0;
-}
-#resultIcon{font-size:80px;}
-.hidden{display:none!important;}
-#pinScreen{
-  display:none;
-  flex-direction:column;
-  align-items:center;
-  gap:10px;
-}
+.screen{ display:none; flex-direction:column; gap:15px; }
+.active{ display:flex; }
+input[type=number]{ width:120px; padding:5px; font-size:20px; text-align:center; }
+.btn{ padding:10px 20px; background:#0a0; border:none; font-size:20px; color:#fff; }
+.pinpad{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+.pinbtn{ width:60px; height:60px; font-size:25px; background:#333; color:#fff; border:none; border-radius:5px; }
+.pin-display{ font-size:30px; letter-spacing:10px; }
+.light{ width:20px; height:20px; border-radius:50%; background:#222; display:inline-block; }
+.activeLight{ background:lime; }
 </style>
-</head>
 
 <body>
 
 <!-- MENU -->
-<div id="menu" class="screen activeScreen">
-  <h1>💳 Terminál</h1>
-  <input type="number" id="amountInput" placeholder="Zadejte částku (CZK)">
+<div id="menu" class="screen active">
+  <h2>Nastavení platby</h2>
+  <div>Částka: <input type="number" id="amountInput" value="30"></div>
   <label><input type="checkbox" id="pinCheckbox"> Vyžadovat PIN</label>
   <label><input type="checkbox" id="rejectCheckbox"> Zamítnout platbu</label>
-  <button id="startBtn" class="primary">Spustit terminál</button>
+  <button id="startBtn" class="btn">Požádat o platbu</button>
 </div>
 
-<!-- TERMINÁL -->
+<!-- TERMINAL -->
 <div id="terminal" class="screen">
-  <h2 id="amountDisplay"></h2>
-  <p id="statusText">Přiložte kartu k telefonu…</p>
-  <div class="lights">
-    <div class="light"></div>
-    <div class="light"></div>
-    <div class="light"></div>
-    <div class="light"></div>
+  <h2 id="statusText">Přiložte kartu</h2>
+  <div>
+    <span class="light"></span>
+    <span class="light"></span>
+    <span class="light"></span>
+    <span class="light"></span>
   </div>
+  <h2 id="amountDisplay"></h2>
 </div>
 
-<!-- PIN -->
+<!-- PINPAD -->
 <div id="pinScreen" class="screen">
   <h2 id="pinTitle">Zadejte PIN</h2>
-  <h3 id="pinAmount"></h3>
-  <input id="pinInput" maxlength="4" type="password" inputmode="numeric">
-  <button id="confirmPin" class="primary">Potvrdit</button>
-  <button id="cancelPin" class="danger">Zrušit</button>
+  <div class="pin-display" id="pinDisplay"></div>
+  <div class="pinpad" id="pinpad"></div>
+  <button id="confirmPin" class="btn">Potvrdit</button>
 </div>
 
-<!-- VÝSLEDEK -->
+<!-- RESULT -->
 <div id="resultScreen" class="screen">
-  <div id="resultIcon">❌</div>
+  <h1 id="resultIcon"></h1>
   <h2 id="resultText"></h2>
 </div>
 
@@ -98,147 +63,106 @@ button{cursor:pointer;}
 <script>
 let reject = false
 let requirePin = false
-let amount = 0
-function sleep(ms){ return new Promise(r => setTimeout(r, ms)) }
-
-// UI refs
+let pin = ""
+const lights = document.querySelectorAll('.light')
+const statusText = document.getElementById("statusText")
+const amountDisplay = document.getElementById("amountDisplay")
 const menu = document.getElementById("menu")
 const terminal = document.getElementById("terminal")
 const pinScreen = document.getElementById("pinScreen")
 const resultScreen = document.getElementById("resultScreen")
-
-const startBtn = document.getElementById("startBtn")
 const pinCheckbox = document.getElementById("pinCheckbox")
 const rejectCheckbox = document.getElementById("rejectCheckbox")
-const amountInput = document.getElementById("amountInput")
+const pinDisplay = document.getElementById("pinDisplay")
+const beep = document.getElementById("beep")
 
-const lights = document.querySelectorAll(".light")
-const statusText = document.getElementById("statusText")
-const amountDisplay = document.getElementById("amountDisplay")
-const confirmPin = document.getElementById("confirmPin")
-const cancelPin = document.getElementById("cancelPin")
-const resultIcon = document.getElementById("resultIcon")
-const resultText = document.getElementById("resultText")
-const pinInput = document.getElementById("pinInput")
-const pinAmount = document.getElementById("pinAmount")
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)) }
 
-const beepSound = document.getElementById("beep")
-
-// NFC init
 async function startNFC(){
   try{
     const ndef = new NDEFReader()
     await ndef.scan()
     ndef.onreading = async () => {
-      beepSound.play()
-      navigator.vibrate(120)
-      if(requirePin){
-        await loadCardThenPIN()
-      }else{
-        await processPayment()
-      }
+      beep.play()
+      navigator.vibrate(100)
+      await processCard()
     }
   }catch(e){
     statusText.textContent = "NFC chyba"
   }
 }
 
-// Launch terminal
-startBtn.onclick = () => {
-  if(amountInput.value <= 0) return
+startNFC()
+
+document.getElementById("startBtn").onclick = () => {
   reject = rejectCheckbox.checked
   requirePin = pinCheckbox.checked
-  amount = amountInput.value
-
-  // ensure pin screen hidden
-  pinScreen.style.display = "none"
-  pinScreen.classList.remove("activeScreen")
-
-  menu.classList.remove("activeScreen")
-  terminal.classList.add("activeScreen")
-  amountDisplay.textContent = amount + " CZK"
-  startNFC()
+  menu.classList.remove('active')
+  terminal.classList.add('active')
+  amountDisplay.textContent = document.getElementById("amountInput").value + " CZK"
 }
 
-async function loadCardThenPIN(){
-  statusText.textContent = "Načítání karty…"
+async function processCard(){
+  statusText.textContent = "Načítám kartu…"
   await sleep(2000)
-  showPinScreen()
+
+  if(requirePin){
+    showPin()
+  } else finishAfterProcess()
 }
 
-async function processPayment(){
-  statusText.textContent = "Zpracovávám…"
-  for(let i=0;i<lights.length;i++){
-    lights[i].classList.add("activeLight")
-    await sleep(250)
-  }
-  for(let l of lights) l.classList.remove("activeLight")
-
-  await paymentAnimation()
+function showPin(){
+  terminal.classList.remove('active')
+  pinScreen.classList.add('active')
+  document.getElementById("pinTitle").textContent =
+    "Zadejte PIN " + amountDisplay.textContent
 }
 
-async function paymentAnimation(){
-  const steps = ["Přijímám…","Odesílám…","Přijímám…","Odesílám…"]
-  for(const step of steps){
-    statusText.textContent = step
-    await sleep(700)
-  }
-  finishPayment()
+document.getElementById("confirmPin").onclick = async () => {
+  if(pin.length < 4) return
+  pinScreen.classList.remove('active')
+  terminal.classList.add('active')
+
+  statusText.textContent = "Přijímám…"
+  await sleep(1000)
+  statusText.textContent = "Odesílám…"
+  await sleep(1000)
+  statusText.textContent = "Přijímám…"
+  await sleep(1000)
+  statusText.textContent = "Odesílám…"
+  await sleep(1000)
+  finishAfterProcess()
 }
 
-function finishPayment(){
-  showResult(!reject)
-  setTimeout(()=>{cleanupAndReturn()},4000)
-}
+async function finishAfterProcess(){
+  terminal.classList.remove('active')
+  resultScreen.classList.add('active')
 
-// PIN UI actions
-confirmPin.onclick = async () => {
-  hidePinScreen()
-  await processPayment()
-}
-cancelPin.onclick = () => {
-  showResult(false,"Platba Zamítnuta","Nedostatek zůstatku")
-  setTimeout(()=>cleanupAndReturn(),4000)
-}
-
-function showPinScreen(){
-  pinAmount.textContent = amount + " CZK"
-  terminal.classList.remove("activeScreen")
-  terminal.classList.add("hidden")
-
-  pinScreen.style.display = "flex"
-  pinScreen.classList.add("activeScreen")
-  pinInput.value = ""
-}
-function hidePinScreen(){
-  pinScreen.style.display = "none"
-  pinScreen.classList.remove("activeScreen")
-}
-
-function showResult(success,msgCustom){
-  terminal.classList.remove("activeScreen")
-  pinScreen.style.display = "none"
-
-  resultScreen.classList.remove("hidden")
-  resultScreen.classList.add("activeScreen")
-
-  if(success){
-    resultIcon.textContent = "✔️"
-    resultText.textContent = "Schváleno"
+  if(reject){
+    document.getElementById("resultIcon").textContent = "❌"
+    document.getElementById("resultText").textContent = "Platba Zamítnuta, Nedostatek zůstatku."
   }else{
-    resultIcon.textContent = "❌"
-    resultText.textContent = msgCustom || "Platba Zamítnuta, Nedostatek zůstatku"
+    document.getElementById("resultIcon").textContent = "✔️"
+    document.getElementById("resultText").textContent = "Schváleno"
   }
+  await sleep(4000)
+  location.reload()
 }
 
-function cleanupAndReturn(){
-  resultScreen.classList.remove("activeScreen")
-  resultScreen.classList.add("hidden")
-  terminal.classList.remove("activeScreen")
-  pinScreen.style.display = "none"
-
-  menu.classList.add("activeScreen")
-}
+// PIN PAD GENERATION
+const pad = document.getElementById("pinpad")
+const nums = [1,2,3,4,5,6,7,8,9,"←",0,"OK"]
+nums.forEach(n=>{
+  const b = document.createElement("button")
+  b.className = "pinbtn"
+  b.textContent = n
+  b.onclick = ()=>{
+    if(n==="←"){ pin = pin.slice(0,-1) }
+    else if(typeof n==="number" && pin.length<4){ pin+=n }
+    pinDisplay.textContent = "*".repeat(pin.length)
+  }
+  pad.appendChild(b)
+})
 </script>
 
 </body>
