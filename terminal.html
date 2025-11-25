@@ -46,6 +46,12 @@ button{cursor:pointer;}
 }
 #resultIcon{font-size:80px;}
 .hidden{display:none!important;}
+#pinScreen{
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+}
 </style>
 </head>
 
@@ -73,7 +79,7 @@ button{cursor:pointer;}
 </div>
 
 <!-- PIN -->
-<div id="pinScreen" class="screen hidden">
+<div id="pinScreen" class="screen">
   <h2 id="pinTitle">Zadejte PIN</h2>
   <h3 id="pinAmount"></h3>
   <input id="pinInput" maxlength="4" type="password" inputmode="numeric">
@@ -82,7 +88,7 @@ button{cursor:pointer;}
 </div>
 
 <!-- VÝSLEDEK -->
-<div id="resultScreen" class="screen hidden">
+<div id="resultScreen" class="screen">
   <div id="resultIcon">❌</div>
   <h2 id="resultText"></h2>
 </div>
@@ -144,6 +150,10 @@ startBtn.onclick = () => {
   requirePin = pinCheckbox.checked
   amount = amountInput.value
 
+  // ensure pin screen hidden
+  pinScreen.style.display = "none"
+  pinScreen.classList.remove("activeScreen")
+
   menu.classList.remove("activeScreen")
   terminal.classList.add("activeScreen")
   amountDisplay.textContent = amount + " CZK"
@@ -194,18 +204,20 @@ cancelPin.onclick = () => {
 function showPinScreen(){
   pinAmount.textContent = amount + " CZK"
   terminal.classList.remove("activeScreen")
-  pinScreen.classList.remove("hidden")
+  terminal.classList.add("hidden")
+
+  pinScreen.style.display = "flex"
   pinScreen.classList.add("activeScreen")
   pinInput.value = ""
 }
 function hidePinScreen(){
+  pinScreen.style.display = "none"
   pinScreen.classList.remove("activeScreen")
-  pinScreen.classList.add("hidden")
 }
 
-function showResult(success,msgCustom,descCustom){
+function showResult(success,msgCustom){
   terminal.classList.remove("activeScreen")
-  pinScreen.classList.add("hidden")
+  pinScreen.style.display = "none"
 
   resultScreen.classList.remove("hidden")
   resultScreen.classList.add("activeScreen")
@@ -223,7 +235,7 @@ function cleanupAndReturn(){
   resultScreen.classList.remove("activeScreen")
   resultScreen.classList.add("hidden")
   terminal.classList.remove("activeScreen")
-  pinScreen.classList.add("hidden")
+  pinScreen.style.display = "none"
 
   menu.classList.add("activeScreen")
 }
