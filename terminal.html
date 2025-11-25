@@ -1,169 +1,369 @@
 <!DOCTYPE html>
 <html lang="cs">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Falešný Terminál</title>
-
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>💳 Fake NFC Terminál</title>
 <style>
-body{
-  margin:0; font-family:Arial; background:#111; color:#fff; display:flex;
-  justify-content:center; align-items:center; height:100vh; text-align:center;
+:root{
+  --bg: #0b0c0d;
+  --panel:#0f1213;
+  --muted:#9aa2a8;
+  --accent:#00b050;
+  --accent-dark:#008a38;
+  --danger:#d04b4b;
+  --glass: rgba(255,255,255,0.03);
 }
-.screen{ display:none; flex-direction:column; gap:15px; }
-.active{ display:flex; }
-input[type=number]{ width:120px; padding:5px; font-size:20px; text-align:center; }
-.btn{ padding:10px 20px; background:#0a0; border:none; font-size:20px; color:#fff; }
-.pinpad{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
-.pinbtn{ width:60px; height:60px; font-size:25px; background:#333; color:#fff; border:none; border-radius:5px; }
-.pin-display{ font-size:30px; letter-spacing:10px; }
-.light{ width:20px; height:20px; border-radius:50%; background:#222; display:inline-block; }
-.activeLight{ background:lime; }
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background: linear-gradient(180deg,#060607,#0f1112);
+  color:#fff;
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.app{
+  width:100%;
+  max-width:460px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border-radius:14px;
+  padding:18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.02);
+}
+.header{display:flex;align-items:center;gap:10px;justify-content:center}
+.h1{font-size:20px;margin:0}
+.row{display:flex;gap:10px;align-items:center;justify-content:center}
+.label{font-size:14px;color:var(--muted)}
+.input-number{
+  width:140px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);
+  background:transparent;color:#fff;font-size:16px;text-align:center;appearance:none;
+}
+.controls{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.btn{padding:10px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer}
+.btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent-dark));color:#03220f}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+.small{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}
+
+/* screens */
+.screen{display:none;flex-direction:column;align-items:center;gap:12px}
+.screen.active{display:flex}
+
+/* terminal */
+.amount{font-size:28px;font-weight:800}
+.status{font-size:18px;color:var(--muted);min-height:28px;text-align:center}
+.lights{display:flex;gap:10px;margin-top:8px}
+.light{width:18px;height:18px;border-radius:50%;background:#06270b;box-shadow:inset 0 -2px 6px rgba(0,0,0,0.6)}
+.light.on{background:linear-gradient(180deg,#22ff7a,#00a63c);box-shadow:0 0 12px rgba(0,170,80,0.85)}
+
+/* pin screen */
+.pinScreen{display:none;flex-direction:column;align-items:center;gap:10px}
+.pinScreen.active{display:flex}
+.pinTitle{font-weight:800}
+.pinAmount{color:var(--muted);font-size:14px}
+.pinDisplay{
+  width:220px;height:52px;border-radius:10px;background:#020402;border:1px solid rgba(255,255,255,0.03);
+  display:flex;align-items:center;justify-content:center;font-size:26px;letter-spacing:12px;color:#0f0;
+}
+.numpad{display:grid;grid-template-columns:repeat(3,74px);gap:10px;margin-top:8px}
+.key{width:74px;height:56px;border-radius:10px;background:#0d1112;border:1px solid rgba(255,255,255,0.03);color:#fff;font-size:20px;cursor:pointer}
+.key.action{background:var(--accent);color:#02260f;font-weight:700}
+
+/* result */
+.result{display:none;flex-direction:column;align-items:center;gap:12px}
+.result.active{display:flex}
+.resultIcon{font-size:72px}
+.resultText{font-size:20px;font-weight:800;text-align:center}
+
+/* utility */
+.hidden{display:none!important}
+.footer{display:flex;justify-content:space-between;gap:8px;margin-top:10px;color:var(--muted);font-size:13px}
+.link{background:transparent;border:0;color:var(--muted);cursor:pointer}
 </style>
-
+</head>
 <body>
+<div class="app" role="application" aria-label="Fake NFC terminál">
 
-<!-- MENU -->
-<div id="menu" class="screen active">
-  <h2>Nastavení platby</h2>
-  <div>Částka: <input type="number" id="amountInput" value="30"></div>
-  <label><input type="checkbox" id="pinCheckbox"> Vyžadovat PIN</label>
-  <label><input type="checkbox" id="rejectCheckbox"> Zamítnout platbu</label>
-  <button id="startBtn" class="btn">Požádat o platbu</button>
-</div>
-
-<!-- TERMINAL -->
-<div id="terminal" class="screen">
-  <h2 id="statusText">Přiložte kartu</h2>
-  <div>
-    <span class="light"></span>
-    <span class="light"></span>
-    <span class="light"></span>
-    <span class="light"></span>
+  <!-- MENU -->
+  <div id="menu" class="screen active">
+    <div class="header">
+      <div class="h1">💳 Fake NFC Terminál</div>
+    </div>
+    <div class="row">
+      <label class="label">Částka (CZK)</label>
+      <input id="amountInput" class="input-number" type="number" min="1" value="30" inputmode="numeric" />
+    </div>
+    <div class="row">
+      <label class="label"><input id="requirePin" type="checkbox"> Vyžadovat PIN</label>
+    </div>
+    <div class="row">
+      <label class="label"><input id="rejectOnce" type="checkbox"> Zamítnout tuto platbu (jednorázově)</label>
+    </div>
+    <div class="controls">
+      <button id="startBtn" class="btn primary">Spustit terminál</button>
+      <button id="resetBtn" class="btn ghost">Reset</button>
+    </div>
+    <div class="small">Pro NFC použij Chrome na Androidu. Přilož kartu ke zadní straně telefonu.</div>
   </div>
-  <h2 id="amountDisplay"></h2>
-</div>
 
-<!-- PINPAD -->
-<div id="pinScreen" class="screen">
-  <h2 id="pinTitle">Zadejte PIN</h2>
-  <div class="pin-display" id="pinDisplay"></div>
-  <div class="pinpad" id="pinpad"></div>
-  <button id="confirmPin" class="btn">Potvrdit</button>
-</div>
+  <!-- TERMINAL -->
+  <div id="terminal" class="screen" aria-hidden="true">
+    <div class="amount" id="amountDisplay">0 CZK</div>
+    <div class="status" id="statusText">Přiložte kartu k zadní straně telefonu</div>
+    <div class="lights" id="lights">
+      <div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div>
+    </div>
+    <div class="footer">
+      <button id="stopBtn" class="link">Zastavit</button>
+      <button id="backBtn" class="link">Zpět</button>
+    </div>
+  </div>
 
-<!-- RESULT -->
-<div id="resultScreen" class="screen">
-  <h1 id="resultIcon"></h1>
-  <h2 id="resultText"></h2>
-</div>
+  <!-- PIN PAD -->
+  <div id="pinScreen" class="pinScreen" aria-hidden="true">
+    <div class="pinTitle">🔒 Zadejte PIN</div>
+    <div class="pinAmount" id="pinAmount">30 CZK</div>
+    <div id="pinDisplay" class="pinDisplay">----</div>
+    <div class="numpad" id="numpad">
+      <button class="key">1</button><button class="key">2</button><button class="key">3</button>
+      <button class="key">4</button><button class="key">5</button><button class="key">6</button>
+      <button class="key">7</button><button class="key">8</button><button class="key">9</button>
+      <button class="key" id="bksp">←</button><button class="key">0</button><button class="key" id="clr">C</button>
+    </div>
+    <div class="controls">
+      <button id="confirmPin" class="key action">✅ Pokračovat</button>
+      <button id="cancelPin" class="key" style="background:#3a3a3a">❌ Zrušit</button>
+    </div>
+  </div>
 
-<audio id="beep" src="TerminalBeep.mp3"></audio>
+  <!-- RESULT -->
+  <div id="result" class="result" aria-hidden="true">
+    <div id="resultIcon" class="resultIcon"> </div>
+    <div id="resultText" class="resultText"></div>
+  </div>
+
+  <audio id="beep" src="TerminalBeep.mp3" preload="auto"></audio>
+</div>
 
 <script>
-let reject = false
+/* globals NDEFReader */
+const menu = document.getElementById('menu')
+const terminal = document.getElementById('terminal')
+const pinScreen = document.getElementById('pinScreen')
+const result = document.getElementById('result')
+
+const amountInput = document.getElementById('amountInput')
+const amountDisplay = document.getElementById('amountDisplay')
+const statusText = document.getElementById('statusText')
+const lights = Array.from(document.querySelectorAll('.light'))
+const requirePinCheckbox = document.getElementById('requirePin')
+const rejectOnceCheckbox = document.getElementById('rejectOnce')
+const startBtn = document.getElementById('startBtn')
+const resetBtn = document.getElementById('resetBtn')
+const stopBtn = document.getElementById('stopBtn')
+const backBtn = document.getElementById('backBtn')
+
+const pinAmount = document.getElementById('pinAmount')
+const pinDisplay = document.getElementById('pinDisplay')
+const numpad = document.getElementById('numpad')
+const confirmPin = document.getElementById('confirmPin')
+const cancelPin = document.getElementById('cancelPin')
+const bksp = document.getElementById('bksp')
+const clr = document.getElementById('clr')
+
+const resultIcon = document.getElementById('resultIcon')
+const resultText = document.getElementById('resultText')
+const beep = document.getElementById('beep')
+
+let reader = null
+let inProcess = false
+let amount = 0
 let requirePin = false
-let pin = ""
-const lights = document.querySelectorAll('.light')
-const statusText = document.getElementById("statusText")
-const amountDisplay = document.getElementById("amountDisplay")
-const menu = document.getElementById("menu")
-const terminal = document.getElementById("terminal")
-const pinScreen = document.getElementById("pinScreen")
-const resultScreen = document.getElementById("resultScreen")
-const pinCheckbox = document.getElementById("pinCheckbox")
-const rejectCheckbox = document.getElementById("rejectCheckbox")
-const pinDisplay = document.getElementById("pinDisplay")
-const beep = document.getElementById("beep")
+let rejectOnce = false
+let pinValue = ''
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)) }
 
-async function startNFC(){
+/* utility UI helpers */
+function show(el){ el.classList.add('active'); el.classList.remove('hidden'); el.setAttribute('aria-hidden','false') }
+function hide(el){ el.classList.remove('active'); el.classList.add('hidden'); el.setAttribute('aria-hidden','true') }
+
+/* init */
+hide(terminal); hide(pinScreen); hide(result)
+show(menu)
+
+startBtn.addEventListener('click', async ()=>{
+  const v = Number(amountInput.value) || 0
+  if(v <= 0) return
+  amount = v
+  requirePin = requirePinCheckbox.checked
+  rejectOnce = rejectOnceCheckbox.checked
+
+  amountDisplay.textContent = amount + ' CZK'
+  statusText.textContent = 'Inicializuji NFC...'
+  hide(menu); show(terminal)
+
+  await startScan()
+})
+
+resetBtn.addEventListener('click', ()=>{
+  amountInput.value = 30
+  requirePinCheckbox.checked = false
+  rejectOnceCheckbox.checked = false
+})
+
+stopBtn.addEventListener('click', ()=>{
+  stopScan()
+  statusText.textContent = 'Skenování zastaveno'
+})
+
+backBtn.addEventListener('click', ()=>{
+  stopScan()
+  hide(terminal)
+  show(menu)
+})
+
+/* NFC scan */
+async function startScan(){
+  if(!('NDEFReader' in window)){ statusText.textContent = 'Tento prohlížeč nepodporuje NFC'; return }
   try{
-    const ndef = new NDEFReader()
-    await ndef.scan()
-    ndef.onreading = async () => {
-      beep.play()
-      navigator.vibrate(100)
-      await processCard()
+    reader = new NDEFReader()
+    await reader.scan()
+    statusText.textContent = 'Přiložte kartu...'
+    reader.onreadingerror = ()=>{ statusText.textContent = 'Chyba čtení NFC' }
+    reader.onreading = async () => {
+      if(inProcess) return
+      inProcess = true
+      try{ beep && beep.play().catch(()=>{}) }catch{}
+      if(navigator.vibrate) navigator.vibrate([80,30,80])
+      // flow: if requirePin -> Načítání karty (2s) -> show pinpad
+      if(requirePin){
+        statusText.textContent = 'Načítání karty'
+        await sleep(2000)
+        showPinPad()
+      } else {
+        await runSequenceAndFinish(!rejectOnce, rejectOnce)
+      }
     }
   }catch(e){
-    statusText.textContent = "NFC chyba"
+    statusText.textContent = 'Nelze spustit NFC. Zkontrolujte Chrome a povolení NFC.'
+    inProcess = false
   }
 }
 
-startNFC()
-
-document.getElementById("startBtn").onclick = () => {
-  reject = rejectCheckbox.checked
-  requirePin = pinCheckbox.checked
-  menu.classList.remove('active')
-  terminal.classList.add('active')
-  amountDisplay.textContent = document.getElementById("amountInput").value + " CZK"
-}
-
-async function processCard(){
-  statusText.textContent = "Načítám kartu…"
-  await sleep(2000)
-
-  if(requirePin){
-    showPin()
-  } else finishAfterProcess()
-}
-
-function showPin(){
-  terminal.classList.remove('active')
-  pinScreen.classList.add('active')
-  document.getElementById("pinTitle").textContent =
-    "Zadejte PIN " + amountDisplay.textContent
-}
-
-document.getElementById("confirmPin").onclick = async () => {
-  if(pin.length < 4) return
-  pinScreen.classList.remove('active')
-  terminal.classList.add('active')
-
-  statusText.textContent = "Přijímám…"
-  await sleep(1000)
-  statusText.textContent = "Odesílám…"
-  await sleep(1000)
-  statusText.textContent = "Přijímám…"
-  await sleep(1000)
-  statusText.textContent = "Odesílám…"
-  await sleep(1000)
-  finishAfterProcess()
-}
-
-async function finishAfterProcess(){
-  terminal.classList.remove('active')
-  resultScreen.classList.add('active')
-
-  if(reject){
-    document.getElementById("resultIcon").textContent = "❌"
-    document.getElementById("resultText").textContent = "Platba Zamítnuta, Nedostatek zůstatku."
-  }else{
-    document.getElementById("resultIcon").textContent = "✔️"
-    document.getElementById("resultText").textContent = "Schváleno"
+function stopScan(){
+  if(reader){
+    try{ reader.onreading = null; reader.onreadingerror = null }catch(e){}
+    reader = null
   }
-  await sleep(4000)
-  location.reload()
 }
 
-// PIN PAD GENERATION
-const pad = document.getElementById("pinpad")
-const nums = [1,2,3,4,5,6,7,8,9,"←",0,"OK"]
-nums.forEach(n=>{
-  const b = document.createElement("button")
-  b.className = "pinbtn"
-  b.textContent = n
-  b.onclick = ()=>{
-    if(n==="←"){ pin = pin.slice(0,-1) }
-    else if(typeof n==="number" && pin.length<4){ pin+=n }
-    pinDisplay.textContent = "*".repeat(pin.length)
-  }
-  pad.appendChild(b)
+/* PIN pad (no native keyboard) */
+function showPinPad(){
+  hide(terminal)
+  pinAmount.textContent = amount + ' CZK'
+  pinValue = ''
+  updatePinDisplay()
+  show(pinScreen)
+}
+
+/* numpad clicks */
+numpad.addEventListener('click', (e)=>{
+  const b = e.target
+  if(!b.classList.contains('key')) return
+  const v = b.textContent.trim()
+  if(v === 'C'){ pinValue = ''; updatePinDisplay(); return }
+  if(v === '←'){ pinValue = pinValue.slice(0,-1); updatePinDisplay(); return }
+  if(/\d/.test(v) && pinValue.length < 4){ pinValue += v; updatePinDisplay(); }
 })
-</script>
 
+confirmPin.addEventListener('click', async ()=>{
+  if(pinValue.length < 4){
+    statusText.textContent = 'PIN musí mít 4 číslice'
+    return
+  }
+  hide(pinScreen)
+  show(terminal)
+  // continue with sequence
+  await runSequenceAndFinish(!rejectOnce, rejectOnce)
+})
+
+cancelPin.addEventListener('click', ()=>{
+  hide(pinScreen)
+  show(terminal)
+  // treat as decline
+  showDecline()
+})
+
+function updatePinDisplay(){
+  pinDisplay.textContent = '*'.repeat(pinValue.length) + '-'.repeat(4 - pinValue.length)
+}
+
+/* main flow: lights + steps + results */
+async function runSequenceAndFinish(accepted, isRejected){
+  await sequentialLights()
+  const seq = ['Přijímám','Odesílám','Přijímám','Odesílám']
+  for(const s of seq){
+    statusText.textContent = s
+    await sleep(600)
+  }
+  lights.forEach(l => l.classList.remove('on'))
+  await sleep(120)
+  if(isRejected){
+    await showDecline()
+    return
+  }
+  if(accepted){
+    await showApproved()
+  } else {
+    await showDecline()
+  }
+}
+
+async function sequentialLights(){
+  lights.forEach(l => l.classList.remove('on'))
+  for(let i=0;i<lights.length;i++){
+    lights[i].classList.add('on')
+    await sleep(180)
+  }
+}
+
+/* results */
+async function showApproved(){
+  statusText.textContent = 'Schváleno'
+  resultIcon.textContent = '✅'
+  resultText.textContent = 'Schváleno'
+  hide(terminal)
+  hide(pinScreen)
+  show(result)
+  await sleep(4000)
+  restartPage()
+}
+
+async function showDecline(){
+  statusText.textContent = 'Platba zamítnuta. Nedostatek zůstatku.'
+  resultIcon.textContent = '❌'
+  resultText.textContent = 'Platba zamítnuta'
+  hide(terminal)
+  hide(pinScreen)
+  show(result)
+  await sleep(4000)
+  restartPage()
+}
+
+/* reload after each transaction */
+function restartPage(){
+  // stop NFC before reload
+  stopScan()
+  setTimeout(()=>{ location.reload() }, 0)
+}
+
+/* ensure UI initial state */
+updatePinDisplay()
+</script>
 </body>
 </html>
